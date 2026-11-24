@@ -1,6 +1,9 @@
-export const systems = ["Power", "Propulsion", "Avionics", "Sensors", "Servos"] as const;
+export const systems = [
+  "Power", "Power Distribution", "Propulsion", "Flight Controller",
+  "Servos", "RC + TELEM + VTX", "External Sensors",
+] as const;
 
-type System = (typeof systems)[number];
+export type System = (typeof systems)[number];
 
 export type Harness = {
   id: string;
@@ -43,7 +46,7 @@ function group(system: System, prefix: string, runs: [string, string, string][])
 const lifts = [1, 2, 3, 4];
 const tailServos = ["Left elevator", "Right elevator", "Left rudder", "Right rudder"];
 
-export const harnesses = [
+const originalHarnesses = [
   ...group("Power", "PWR", [
     ["Main battery feed", "12S3P battery → PM08-CAN BMS", "XT90"],
     ["Power distribution feed", "PM08-CAN BMS → Mateksys PDB", "XT90 · 8 AWG"],
@@ -53,15 +56,15 @@ export const harnesses = [
   ...group("Propulsion", "PRP", [
     ["Pusher ESC power", "Mateksys PDB → Pusher ESC", "XT60 · 10 AWG"],
     ["Pusher motor phases", "Pusher ESC → Pusher motor", "MT60 · 10 AWG"],
-    ["Pusher ESC signal", "Pixhawk 6X → Pusher ESC", "CAN signal as drawn"],
+    ["Pusher ESC signal", "Pixhawk 6X → Pusher ESC", "DShot in functional diagram · CAN in detailed diagram"],
     ...lifts.flatMap((n): [string, string, string][] => [
       ["Lift " + n + " ESC power", "Mateksys PDB → Lift " + n + " ESC", "XT60"],
       ["Lift " + n + " motor phases", "Lift " + n + " ESC → Lift " + n + " motor", "MT60"],
       ["Lift " + n + " motor auxiliary", "Lift " + n + " motor ↔ Lift " + n + " ESC", n === 1 ? "MR / M6 · 5C 24 AWG as drawn" : "MR / M6 as drawn"],
-      ["Lift " + n + " ESC signal", "Pixhawk 6X → Lift " + n + " ESC", "CAN signal as drawn"],
+      ["Lift " + n + " ESC signal", "Pixhawk 6X → Lift " + n + " ESC", "DShot in functional diagram · CAN in detailed diagram"],
     ]),
   ]),
-  ...group("Avionics", "AVN", [
+  ...group("RC + TELEM + VTX", "AVN", [
     ["DJI air unit power", "Mateksys PDB 12 V → DJI O4 Pro", "XT30 to shared 6-pin JST"],
     ["DJI air unit data", "Pixhawk 6X UART 2 → DJI O4 Pro", "6-pin JST · MSP DisplayPort"],
     ["ELRS radio link", "Pixhawk 6X UART 1 → ELRS Link", "6-pin JST · Gemini MAVLink"],
@@ -69,7 +72,7 @@ export const harnesses = [
     ["CAN 2 trunk", "Pixhawk 6X CAN 2 → CAN Splitter #2", "4-pin JST"],
     ["BMS data", "CAN Splitter #1 → PM08-CAN BMS", "4-pin JST"],
   ]),
-  ...group("Sensors", "SNS", [
+  ...group("External Sensors", "SNS", [
     ["Left GPS fuselage run", "CAN Splitter #1 → Left wing disconnect", "4-pin JST"],
     ["Left GPS wing run", "Left wing disconnect → Left M9N DroneCAN GPS", "4-pin JST"],
     ["Right GPS wing run", "CAN Splitter #2 → Right M9N DroneCAN GPS", "4-pin JST"],
@@ -91,3 +94,28 @@ export const harnesses = [
     ]),
   ]),
 ];
+
+const regrouped: Partial<Record<string, System>> = {
+  "PWR-02": "Power Distribution",
+  "PWR-03": "Power Distribution",
+  "PWR-04": "Power Distribution",
+  "AVN-04": "Flight Controller",
+  "AVN-05": "Flight Controller",
+  "AVN-06": "Power",
+};
+
+export const harnesses = originalHarnesses.map((wire) => ({
+  ...wire,
+  system: regrouped[wire.id] ?? wire.system,
+}));
+
+export type WireDetails = Pick<Harness, "name" | "endpoints" | "connector">;
+
+export type Wire = Harness & Tracking & {
+  archived: boolean;
+  custom: boolean;
+};
+
+export function wireLabel(id: string) {
+  return id.startsWith("wire-") ? "W-" + id.slice(5, 11).toUpperCase() : id;
+}
