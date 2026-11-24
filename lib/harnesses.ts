@@ -79,7 +79,8 @@ const originalHarnesses = [
     ["Airspeed sensor", "CAN Splitter #2 → DLVR L10D airspeed sensor", "4-pin JST"],
     ["Magnetometer splitter run", "CAN Splitter #2 → Magnetometer inline disconnect", "4-pin JST"],
     ["Magnetometer tail run", "Magnetometer inline disconnect → RM3100 CAN magnetometer", "4-pin JST"],
-    ["Downward rangefinder", "Pixhawk 6X I2C 1 → Benewake TF02", "4-pin JST"],
+    ["Downward rangefinder — Pixhawk side", "Pixhawk 6X I2C 1 → Center-wing disconnect", "4-pin JST at Pixhawk"],
+    ["Downward rangefinder — sensor side", "Center-wing disconnect → Benewake TF02", "4-pin JST at TF02"],
   ]),
   ...group("Servos", "SRV", [
     ["Wheel servo", "Pixhawk 6X → Wheel servo", "3-pin header"],

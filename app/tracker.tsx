@@ -29,7 +29,7 @@ type Stage = (typeof stages)[number]["key"];
 type Editor = { wire: Wire } | { system: System; id: string };
 type Mutation =
   | { action: "create"; id: string; system: System; details: WireDetails; tracking: Tracking }
-  | { action: "edit"; id: string; revision: number; details?: WireDetails; tracking: Tracking }
+  | { action: "edit"; id: string; revision: number; details?: Partial<WireDetails>; tracking: Tracking }
   | { action: "archive"; id: string; revision: number; archived: boolean };
 
 async function saveWire(mutation: Mutation) {
@@ -349,7 +349,6 @@ function WireEditor({ editor, onClose, onSaved, onConflict, onExpired }: {
   const dialog = useRef<HTMLDialogElement>(null);
   const original = "wire" in editor ? editor.wire : null;
   const section = "wire" in editor ? editor.wire.system : editor.system;
-  const canEditDetails = !original || original.custom;
   const [details, setDetails] = useState<WireDetails>({
     name: original?.name ?? "", endpoints: original?.endpoints ?? "", connector: original?.connector ?? "",
   });
@@ -400,9 +399,14 @@ function WireEditor({ editor, onClose, onSaved, onConflict, onExpired }: {
     event.preventDefault();
     const values = { ...tracking, length: length === "" ? null : Number(length) };
     if ("wire" in editor) {
+      const { wire } = editor;
+      const changedDetails: Partial<WireDetails> = {};
+      for (const field of ["name", "endpoints", "connector"] as const) {
+        if (details[field].trim() !== wire[field]) changedDetails[field] = details[field].trim();
+      }
       void submit({
-        action: "edit", id: editor.wire.id, revision: editor.wire.revision,
-        details: editor.wire.custom ? details : undefined, tracking: values,
+        action: "edit", id: wire.id, revision: wire.revision,
+        details: changedDetails, tracking: values,
       }, "Wire updated");
     } else {
       void submit({ action: "create", id: editor.id, system: editor.system, details, tracking: values }, "Wire added");
@@ -423,15 +427,15 @@ function WireEditor({ editor, onClose, onSaved, onConflict, onExpired }: {
         <div className="dialog-kicker"><span className="terminal" style={{ color: groupColors[section] }} />{section}{original && <span className="run-id">{wireLabel(original.id)}</span>}</div>
         <h2 id="wire-title">{original?.name ?? "Add wire"}</h2>
         <button type="button" className="icon-button dialog-close" aria-label="Close" disabled={saving} onClick={onClose}><X size={18} /></button>
-        {original && (!canEditDetails || original.archived) && <p>{[original.endpoints, original.connector].filter(Boolean).join(" · ")}</p>}
+        {original?.archived && <p>{[original.endpoints, original.connector].filter(Boolean).join(" · ")}</p>}
       </div>
       <div className="dialog-fields">
         {confirmRemove ? <p className="remove-message">Remove this wire from {section}? Its tracking details are kept in Removed wires, where you can restore it.</p> : <>
           {original?.archived && <p className="remove-message">Restore this wire to return it to {section}.</p>}
           <fieldset className="edit-fields" disabled={saving || conflict || original?.archived}>
-            {canEditDetails && !original?.archived && <>
-              <label className="field">Wire name<input autoFocus required maxLength={120} value={details.name} onChange={(event) => setDetails({ ...details, name: event.target.value })} /></label>
-              <label className="field">Route <span className="optional">optional</span><input maxLength={200} placeholder="Source to destination" value={details.endpoints} onChange={(event) => setDetails({ ...details, endpoints: event.target.value })} /></label>
+            {!original?.archived && <>
+              <label className="field">Wire name<input autoFocus={!original} required maxLength={120} value={details.name} onChange={(event) => setDetails({ ...details, name: event.target.value })} /></label>
+              <label className="field">Route / description <span className="optional">optional</span><input maxLength={200} placeholder="Source to destination" value={details.endpoints} onChange={(event) => setDetails({ ...details, endpoints: event.target.value })} /></label>
               <label className="field">Connector or wire spec <span className="optional">optional</span><input maxLength={120} value={details.connector} onChange={(event) => setDetails({ ...details, connector: event.target.value })} /></label>
             </>}
             <label className="field">Length (mm)

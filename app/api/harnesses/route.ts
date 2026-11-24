@@ -40,7 +40,7 @@ const updateBase = z.object({
 
 const mutationSchema = z.discriminatedUnion("action", [
   createSchema,
-  updateBase.extend({ action: z.literal("edit"), tracking: trackingSchema, details: detailsSchema.optional() }),
+  updateBase.extend({ action: z.literal("edit"), tracking: trackingSchema, details: detailsSchema.partial().optional() }),
   updateBase.extend({ action: z.literal("archive"), archived: z.boolean() }),
 ]);
 
@@ -48,6 +48,9 @@ function wireFrom(row: StoredWire | undefined, original?: Harness): Wire | null 
   if (original) {
     return {
       ...original,
+      name: row?.name ?? original.name,
+      endpoints: row?.endpoints ?? original.endpoints,
+      connector: row?.connector ?? original.connector,
       ...(row ? {
         length: row.length,
         mechReady: row.mechReady,
@@ -104,7 +107,7 @@ export async function PATCH(request: Request) {
 
   const changes = data.action === "archive"
     ? { archived: data.archived }
-    : { ...data.tracking, ...(original ? {} : data.details) };
+    : { ...data.tracking, ...data.details };
   const values = { ...changes, revision: data.revision + 1 };
   const [row] = data.revision === 0 && original
     ? await db.insert(harnessTracking).values({ id: data.id, ...blankTracking, ...values }).onConflictDoNothing().returning()
