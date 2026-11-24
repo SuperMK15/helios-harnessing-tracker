@@ -15,6 +15,13 @@
       "when": 1795321818049,
       "tag": "0001_sharp_hex",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1795480751289,
+      "tag": "0002_high_magneto",
+      "breakpoints": true
     }
   ]
 }

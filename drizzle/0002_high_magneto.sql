@@ -1,0 +1,1 @@
+ALTER TABLE `harness_tracking` ADD `mechanical_ready` integer DEFAULT false NOT NULL;

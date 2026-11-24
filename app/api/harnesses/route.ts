@@ -16,14 +16,21 @@ const detailsSchema = z.object({
   connector: z.string().trim().max(120),
 });
 
-const trackingSchema = z.object({
+const trackingFields = z.object({
   length: z.number().positive().nullable(),
-  mechReady: z.boolean(),
   soldered: z.boolean(),
   installed: z.boolean(),
   solderedBy: z.string().trim().max(100),
   inspectedBy: z.string().trim().max(100),
 });
+
+// Tabs open before the update still send the original checkbox as mechReady.
+const trackingSchema = z.union([
+  trackingFields.extend({ lengthFinal: z.boolean(), mechanicalReady: z.boolean() }),
+  trackingFields.extend({ mechReady: z.boolean() }).transform(({ mechReady, ...tracking }) => ({
+    ...tracking, lengthFinal: mechReady,
+  })),
+]);
 
 const createSchema = z.object({
   action: z.literal("create"),
@@ -44,16 +51,18 @@ const mutationSchema = z.discriminatedUnion("action", [
   updateBase.extend({ action: z.literal("archive"), archived: z.boolean() }),
 ]);
 
-function wireFrom(row: StoredWire | undefined, original?: Harness): Wire | null {
+function wireFrom(row: StoredWire | undefined, original?: Harness): (Wire & { mechReady: boolean }) | null {
   if (original) {
     return {
       ...original,
       name: row?.name ?? original.name,
       endpoints: row?.endpoints ?? original.endpoints,
       connector: row?.connector ?? original.connector,
+      mechReady: row?.lengthFinal ?? blankTracking.lengthFinal,
       ...(row ? {
         length: row.length,
-        mechReady: row.mechReady,
+        lengthFinal: row.lengthFinal,
+        mechanicalReady: row.mechanicalReady,
         soldered: row.soldered,
         installed: row.installed,
         solderedBy: row.solderedBy,
@@ -65,7 +74,7 @@ function wireFrom(row: StoredWire | undefined, original?: Harness): Wire | null 
     };
   }
   if (!row || !row.system || !row.name) return null;
-  return { ...row, system: row.system, name: row.name, endpoints: row.endpoints ?? "", connector: row.connector ?? "", custom: true };
+  return { ...row, mechReady: row.lengthFinal, system: row.system, name: row.name, endpoints: row.endpoints ?? "", connector: row.connector ?? "", custom: true };
 }
 
 export async function GET() {

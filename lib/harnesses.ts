@@ -15,8 +15,9 @@ export type Harness = {
 
 export type Tracking = {
   length: number | null;
-  mechReady: boolean;
+  lengthFinal: boolean;
   soldered: boolean;
+  mechanicalReady: boolean;
   installed: boolean;
   solderedBy: string;
   inspectedBy: string;
@@ -25,8 +26,9 @@ export type Tracking = {
 
 export const blankTracking: Tracking = {
   length: null,
-  mechReady: false,
+  lengthFinal: false,
   soldered: false,
+  mechanicalReady: false,
   installed: false,
   solderedBy: "",
   inspectedBy: "",

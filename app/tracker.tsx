@@ -10,8 +10,9 @@ import {
 } from "../lib/harnesses";
 
 const stages = [
-  { key: "mechReady", label: "Mech ready" },
+  { key: "lengthFinal", label: "Length final" },
   { key: "soldered", label: "Soldered" },
+  { key: "mechanicalReady", label: "Mech ready" },
   { key: "installed", label: "Installed" },
 ] as const;
 
@@ -32,7 +33,7 @@ const filterOptions = [
   { value: "unchecked", stageLabel: "Unchecked", inspectionLabel: "Missing" },
 ] as const;
 type StatusFilters = Record<(typeof filterFields)[number]["key"], (typeof filterOptions)[number]["value"]>;
-const noStatusFilters: StatusFilters = { mechReady: "any", soldered: "any", installed: "any", inspection: "any" };
+const noStatusFilters: StatusFilters = { lengthFinal: "any", soldered: "any", mechanicalReady: "any", installed: "any", inspection: "any" };
 type Editor = { wire: Wire } | { system: System; id: string };
 type Mutation =
   | { action: "create"; id: string; system: System; details: WireDetails; tracking: Tracking }
@@ -415,7 +416,8 @@ function WireEditor({ editor, onClose, onSaved, onConflict, onExpired }: {
   });
   const [tracking, setTracking] = useState<Tracking>({
     length: original?.length ?? null,
-    mechReady: original?.mechReady ?? false,
+    lengthFinal: original?.lengthFinal ?? false,
+    mechanicalReady: original?.mechanicalReady ?? false,
     soldered: original?.soldered ?? false,
     installed: original?.installed ?? false,
     solderedBy: original?.solderedBy ?? "",
