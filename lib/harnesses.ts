@@ -60,7 +60,7 @@ const originalHarnesses = [
     ...lifts.flatMap((n): [string, string, string][] => [
       ["Lift " + n + " ESC power", "Mateksys PDB → Lift " + n + " ESC", "XT60"],
       ["Lift " + n + " motor phases", "Lift " + n + " ESC → Lift " + n + " motor", "MT60"],
-      ["Lift " + n + " motor auxiliary", "Lift " + n + " motor ↔ Lift " + n + " ESC", n === 1 ? "MR / M6 · 5C 24 AWG as drawn" : "MR / M6 as drawn"],
+      ["Lift " + n + " motor encoder signal", "Lift " + n + " motor ↔ Lift " + n + " ESC", n === 1 ? "MR / M6 · 5C 24 AWG as drawn" : "MR / M6 as drawn"],
       ["Lift " + n + " ESC signal", "Pixhawk 6X → Lift " + n + " ESC", "DShot in functional diagram · CAN in detailed diagram"],
     ]),
   ]),
