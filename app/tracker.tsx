@@ -158,7 +158,21 @@ export default function Tracker() {
   const sections = system ? [system] : systems.filter((name) => !removed && !query && filterCount === 0 ||
     matching.some((wire) => wire.system === name));
 
-  const diagramPath = diagram === "functional" ? "/functional-diagram.png" : "/harness-diagram.png";
+  function revealSection(name: System) {
+    setSystem(name);
+    setRemoved(false);
+    setSearch("");
+    setStatusFilters(noStatusFilters);
+    setTargetWire(null);
+    setFullDiagram(false);
+    setView("register");
+    requestAnimationFrame(() => {
+      const heading = document.getElementById("register-title");
+      heading?.focus({ preventScroll: true });
+      heading?.scrollIntoView({ block: "start" });
+    });
+  }
+
 
   function addWire(section: System) {
     setNotice("");
@@ -254,7 +268,7 @@ export default function Tracker() {
 
           <section className="register" aria-labelledby="register-title">
             <div className="register-head">
-              <div><h2 id="register-title">{removed ? "Removed wires" : system ?? "Wire register"}</h2>
+              <div><h2 id="register-title" tabIndex={-1}>{removed ? "Removed wires" : system ?? "Wire register"}</h2>
                 <p>{loadState === "ready" ? matching.length + (matching.length === 1 ? " wire" : " wires") : " "}</p>
               </div>
               <div className="filters">
@@ -289,7 +303,7 @@ export default function Tracker() {
       </> : <>
         <div className="headline">
           <div><h1>Wiring diagrams<span>.</span></h1><p>Helios Mark 2 electrical architecture</p></div>
-          {diagram === "detailed" ? <button className="button secondary" aria-pressed={fullDiagram} onClick={() => setFullDiagram(!fullDiagram)}><FileImage size={16} />{fullDiagram ? "Fit to view" : "Open full size"}</button> : <a className="button secondary" href={diagramPath} target="_blank" rel="noreferrer"><FileImage size={16} /> Open full size</a>}
+          <button className="button secondary" aria-pressed={fullDiagram} onClick={() => setFullDiagram(!fullDiagram)}><FileImage size={16} />{fullDiagram ? "Fit to view" : "Open full size"}</button>
         </div>
         <div className="diagram-tabs" aria-label="Select diagram">
           <button className="button secondary" aria-pressed={diagram === "functional"} onClick={() => setDiagram("functional")}>Functional overview</button>
@@ -297,7 +311,7 @@ export default function Tracker() {
         </div>
         <div className="diagram-panel">
           {diagram === "detailed" ? <DetailedDiagram wires={wires} full={fullDiagram} onReveal={revealWire} /> :
-            <img src={diagramPath} alt="Helios Mark 2 functional wiring groups centered around the Pixhawk 6X." />}
+            <FunctionalDiagram wires={activeWires} loadState={loadState} full={fullDiagram} onReveal={revealSection} />}
 
         </div>
       </>}
@@ -365,6 +379,66 @@ function StatusFilterDialog({ initial, onClose, onApply }: {
       </div>
     </form>
   </dialog>;
+}
+
+// Rounded regions follow the group outlines in the original 1230 × 678 drawing.
+const functionalRegions: Record<System, [number, number, number, number, number][]> = {
+  Propulsion: [[142, 39, 335, 360, 50]],
+  Power: [[831, 97, 327, 109, 16]],
+  "Power Distribution": [[568, 20, 213, 143, 21], [546, 189, 110, 29, 0]],
+  "Flight Controller": [[568, 244, 146, 237, 18], [526, 273, 42, 194, 0], [703, 273, 43, 178, 0], [575, 467, 121, 41, 0]],
+  Servos: [[69, 470, 453, 93, 13]],
+  "RC + TELEM + VTX": [[537, 529, 252, 117, 20]],
+  "External Sensors": [[940, 257, 193, 377, 28]],
+};
+
+function FunctionalDiagram({ wires, full, loadState, onReveal }: {
+  wires: Wire[]; full: boolean; loadState: "loading" | "error" | "ready"; onReveal: (name: System) => void;
+}) {
+  const [tip, setTip] = useState<{ name: System; x: number; y: number; touch?: boolean } | null>(null);
+  const touch = useRef<{ name: System; open: boolean } | null>(null);
+  const group = wires.filter(w => w.system === tip?.name);
+  useEffect(() => {
+    const dismiss = () => setTip(null);
+    window.addEventListener("scroll", dismiss, true);
+    window.addEventListener("resize", dismiss);
+    return () => {
+      window.removeEventListener("scroll", dismiss, true);
+      window.removeEventListener("resize", dismiss);
+    };
+  }, []);
+  return <div className="diagram-scroll">
+    <svg viewBox="0 0 1230 678" className={"wire-map functional-map" + (full ? " native" : "")}
+      aria-label="Functional overview. Select a group to open its wires." onKeyDown={e => { if (e.key === "Escape") setTip(null); }}>
+      <image href="/functional-diagram.png" width="1230" height="678" onPointerDown={() => setTip(null)} />
+      {systems.map(name => <g key={name} className="group-hit" role="link" tabIndex={0} aria-label={name}
+        aria-describedby={tip?.name === name ? "function-tip" : undefined} data-active={tip?.name === name}
+        onPointerMove={e => { if (e.pointerType !== "touch") setTip({ name, x: e.clientX, y: e.clientY }); }}
+        onPointerLeave={e => { if (e.pointerType !== "touch") setTip(null); }}
+        onPointerDown={e => { touch.current = e.pointerType === "touch" ? { name, open: !!tip?.touch && tip.name === name } : null; }}
+        onFocus={e => { const r = e.currentTarget.getBoundingClientRect(); setTip({ name, x: r.left + r.width / 2, y: r.top + r.height / 2 }); }}
+        onBlur={() => setTip(null)}
+        onClick={e => {
+          const firstTap = touch.current?.name === name && !touch.current.open;
+          touch.current = null;
+          if (firstTap) setTip({ name, x: e.clientX, y: e.clientY, touch: true });
+          else onReveal(name);
+        }}
+        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onReveal(name); } }}>
+        {functionalRegions[name].map(([x,y,width,height,r]) => <rect key={x} x={x} y={y} width={width} height={height} rx={r} />)}
+      </g>)}
+    </svg>
+    {tip && <div role="tooltip" id="function-tip" className="wire-tip" style={{
+      left: Math.max(6, Math.min(window.innerWidth - 238, tip.x + 12)),
+      top: tip.y > window.innerHeight - 175 ? Math.max(6, tip.y - 165) : tip.y + 12,
+    }}>
+      <strong>{tip.name}</strong>
+      {loadState === "ready" ? stages.map(({key,label}) => <div key={key}><span>{label}</span>
+        <b>{group.filter(w => w[key]).length} / {group.length}</b></div>) :
+        <span>{loadState === "loading" ? "Loading wire counts…" : "Wire counts unavailable"}</span>}
+      {tip.touch && <small>Tap the group again to open</small>}
+    </div>}
+  </div>;
 }
 
 function DetailedDiagram({ wires, full, onReveal }: { wires: Wire[]; full: boolean; onReveal: (wire: Wire) => void }) {
