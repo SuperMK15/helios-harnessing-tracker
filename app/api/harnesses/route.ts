@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
+import { canEdit, isEditorJsonRequest } from "../../../lib/editor-session";
 import { getDb } from "../../../db";
 import { harnessTracking } from "../../../db/schema";
 import { blankTracking, harnesses, systems, type Harness, type Wire } from "../../../lib/harnesses";
@@ -75,8 +76,11 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  if (request.headers.get("sec-fetch-site") === "cross-site") {
+  if (!isEditorJsonRequest(request)) {
     return Response.json({ error: "Cross-site updates are unavailable." }, { status: 403 });
+  }
+  if (!await canEdit(request)) {
+    return Response.json({ error: "Log in to edit the wire register." }, { status: 401 });
   }
   const parsed = mutationSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {

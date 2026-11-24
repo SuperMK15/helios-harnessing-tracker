@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   Archive, Cable, Check, ChevronDown, CirclePlus, CircuitBoard, FileImage,
-  LayoutList, Pencil, RotateCcw, Search, X,
+  LayoutList, LockKeyhole, LogOut, Pencil, RotateCcw, Search, X,
 } from "lucide-react";
 import {
   blankTracking, systems, wireLabel, type System, type Tracking, type Wire, type WireDetails,
@@ -42,9 +42,20 @@ async function saveWire(mutation: Mutation) {
     const details = await response.json().catch(() => null);
     const message = details && typeof details === "object" && "error" in details && typeof details.error === "string"
       ? details.error : "Could not save this wire. Please try again.";
-    throw Object.assign(new Error(message), { conflict: response.status === 409 });
+    throw Object.assign(new Error(message), { status: response.status });
   }
   return (await response.json()) as Wire;
+}
+
+async function updateSession(method: "POST" | "DELETE", credentials?: { username: string; password: string }) {
+  const response = await fetch("/api/editor-session", {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(credentials ?? {}),
+  });
+  const result = await response.json() as { editable: boolean; error?: string };
+  if (!response.ok) throw new Error(result.error || "Could not update the editor session.");
+  return result.editable;
 }
 
 export default function Tracker() {
@@ -58,6 +69,9 @@ export default function Tracker() {
   const [stage, setStage] = useState<"all" | Stage | "uninspected">("all");
   const [editor, setEditor] = useState<Editor | null>(null);
   const [notice, setNotice] = useState("");
+  const [editable, setEditable] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   async function refresh() {
     try {
@@ -71,6 +85,28 @@ export default function Tracker() {
   }
 
   useEffect(() => { void refresh(); }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/editor-session", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((result) => { if (active && result && typeof result === "object" && "editable" in result && result.editable === true) setEditable(true); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  async function logOut() {
+    setLoggingOut(true);
+    try {
+      await updateSession("DELETE");
+      setEditable(false);
+      setNotice("Logged out. You can still view the tracker.");
+    } catch {
+      setNotice("Could not log out. Please try again.");
+    } finally {
+      setLoggingOut(false);
+    }
+  }
 
   const activeWires = wires.filter((wire) => !wire.archived);
   const listed = wires.filter((wire) => wire.archived === removed);
@@ -111,10 +147,15 @@ export default function Tracker() {
           <span className="brand-symbol"><CircuitBoard size={22} strokeWidth={1.65} /></span>
           <div>HELIOS <span>MK II</span><small>HYBRID VTOL</small></div>
         </div>
-        <nav aria-label="Views">
-          <button className={view === "register" ? "nav-item selected" : "nav-item"} aria-current={view === "register" ? "page" : undefined} onClick={() => setView("register")}><LayoutList size={16} /> Tracker</button>
-          <button className={view === "diagram" ? "nav-item selected" : "nav-item"} aria-current={view === "diagram" ? "page" : undefined} onClick={() => setView("diagram")}><FileImage size={16} /> Diagrams</button>
-        </nav>
+        <div className="header-actions">
+          <nav aria-label="Views">
+            <button className={view === "register" ? "nav-item selected" : "nav-item"} aria-current={view === "register" ? "page" : undefined} onClick={() => setView("register")}><LayoutList size={16} /> Tracker</button>
+            <button className={view === "diagram" ? "nav-item selected" : "nav-item"} aria-current={view === "diagram" ? "page" : undefined} onClick={() => setView("diagram")}><FileImage size={16} /> Diagrams</button>
+          </nav>
+          {editable
+            ? <button className="button secondary editor-access" disabled={loggingOut} onClick={() => void logOut()}><LogOut size={15} /> Log out</button>
+            : <button className="button secondary editor-access" onClick={() => setLoginOpen(true)}><LockKeyhole size={15} /> Log in to edit</button>}
+        </div>
       </div>
     </header>
 
@@ -174,7 +215,7 @@ export default function Tracker() {
                     <option value="uninspected">Inspection pending</option>
                   </select><ChevronDown size={14} />
                 </label>}
-                {system && !removed && <button className="button primary" disabled={loadState !== "ready"} onClick={() => addWire(system)}><CirclePlus size={16} /> Add wire</button>}
+                {editable && system && !removed && <button className="button primary" disabled={loadState !== "ready"} onClick={() => addWire(system)}><CirclePlus size={16} /> Add wire</button>}
               </div>
             </div>
             {loadState === "error" && <div className="empty" role="alert">Saved wires could not be loaded. <button className="button secondary" onClick={() => { setLoadState("loading"); void refresh(); }}>Retry</button></div>}
@@ -185,9 +226,9 @@ export default function Tracker() {
                 return <section key={name} className="wire-section" aria-label={name + " wires"}>
                   {(!system || removed) && <div className="section-head">
                     <h3 style={{ color: groupColors[name] }}><span className="terminal" />{name}<small>{rows.length}</small></h3>
-                    {!removed && <button className="button section-add" aria-label={"Add wire to " + name} onClick={() => addWire(name)}><CirclePlus size={15} /> Add wire</button>}
+                    {editable && !removed && <button className="button section-add" aria-label={"Add wire to " + name} onClick={() => addWire(name)}><CirclePlus size={15} /> Add wire</button>}
                   </div>}
-                  {rows.length ? <WireTable rows={rows} onEdit={(wire) => { setNotice(""); setEditor({ wire }); }} /> :
+                  {rows.length ? <WireTable rows={rows} editable={editable} onEdit={(wire) => { setNotice(""); setEditor({ wire }); }} /> :
                     <p className="empty">No wires {query || stage !== "all" ? "match these filters." : "in this group."}</p>}
                 </section>;
               })}
@@ -211,18 +252,25 @@ export default function Tracker() {
     </main>
 
     <div className={notice ? "toast" : "sr-only"} role="status">{notice && <><Check size={17} />{notice}<button className="icon-button" aria-label="Dismiss status" onClick={() => setNotice("")}><X size={16} /></button></>}</div>
+    {loginOpen && <EditorLogin onClose={() => setLoginOpen(false)} onLogin={() => {
+      setLoginOpen(false);
+      setEditable(true);
+      setNotice("Editing enabled");
+      void refresh();
+    }} />}
     {editor && <WireEditor key={"wire" in editor ? editor.wire.id : editor.id} editor={editor}
-      onClose={() => setEditor(null)} onSaved={applySave} onConflict={() => { void refresh(); }} />}
+      onClose={() => setEditor(null)} onSaved={applySave} onConflict={() => { void refresh(); }}
+      onExpired={() => { setEditor(null); setEditable(false); setLoginOpen(true); setNotice("Your editor session expired."); }} />}
   </>;
 }
 
-function WireTable({ rows, onEdit }: { rows: Wire[]; onEdit: (wire: Wire) => void }) {
+function WireTable({ rows, editable, onEdit }: { rows: Wire[]; editable: boolean; onEdit: (wire: Wire) => void }) {
   return <div className="table-scroll" tabIndex={0} role="region" aria-label="Wire rows">
     <table>
       <thead><tr>
         <th scope="col">Wire / route</th><th scope="col">Length <span>mm</span></th>
         {stages.map(({ key, label }) => <th className="stage-cell" key={key} scope="col">{label}</th>)}
-        <th scope="col">Soldered by</th><th scope="col">Inspected by</th><th scope="col" className="edit-head"><span className="sr-only">Open wire</span></th>
+        <th scope="col">Soldered by</th><th scope="col">Inspected by</th>{editable && <th scope="col" className="edit-head"><span className="sr-only">Open wire</span></th>}
       </tr></thead>
       <tbody>{rows.map((wire) => <tr key={wire.id}>
         <th scope="row" className="run">
@@ -237,16 +285,16 @@ function WireTable({ rows, onEdit }: { rows: Wire[]; onEdit: (wire: Wire) => voi
         </td>)}
         <td>{wire.solderedBy || <span className="muted">—</span>}</td>
         <td>{wire.inspectedBy || <span className="muted">—</span>}</td>
-        <td className="edit-cell"><button className="icon-button" aria-label={(wire.archived ? "Review " : "Edit ") + wire.name} onClick={() => onEdit(wire)}>
+        {editable && <td className="edit-cell"><button className="icon-button" aria-label={(wire.archived ? "Review " : "Edit ") + wire.name} onClick={() => onEdit(wire)}>
           {wire.archived ? <Archive size={15} /> : <Pencil size={15} />}
-        </button></td>
+        </button></td>}
       </tr>)}</tbody>
     </table>
   </div>;
 }
 
-function WireEditor({ editor, onClose, onSaved, onConflict }: {
-  editor: Editor; onClose: () => void; onSaved: (wire: Wire, message: string, created: boolean) => void; onConflict: () => void;
+function WireEditor({ editor, onClose, onSaved, onConflict, onExpired }: {
+  editor: Editor; onClose: () => void; onSaved: (wire: Wire, message: string, created: boolean) => void; onConflict: () => void; onExpired: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const original = "wire" in editor ? editor.wire : null;
@@ -282,9 +330,15 @@ function WireEditor({ editor, onClose, onSaved, onConflict }: {
     try {
       onSaved(await saveWire(mutation), message, mutation.action === "create");
     } catch (err) {
-      if (err instanceof Error && "conflict" in err && err.conflict) {
-        setConflict(true);
-        onConflict();
+      if (err instanceof Error && "status" in err) {
+        if (err.status === 401) {
+          onExpired();
+          return;
+        }
+        if (err.status === 409) {
+          setConflict(true);
+          onConflict();
+        }
       }
       setError(err instanceof Error ? err.message : "Could not save this wire.");
     } finally {
@@ -361,6 +415,58 @@ function WireEditor({ editor, onClose, onSaved, onConflict }: {
             ? <button type="button" className="button primary" disabled={saving || conflict} onClick={() => setArchived(false)}><RotateCcw size={15} /> Restore wire</button>
             : <button className="button primary" disabled={saving || conflict} type="submit">{saving ? "Saving…" : original ? "Save changes" : "Add wire"}</button>}
         </>}
+      </div>
+    </form>
+  </dialog>;
+}
+
+function EditorLogin({ onClose, onLogin }: { onClose: () => void; onLogin: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const element = dialog.current;
+    element?.showModal();
+    return () => { element?.close(); };
+  }, []);
+
+  async function login(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setPending(true);
+    setError("");
+    try {
+      await updateSession("POST", {
+        username: String(form.get("username") ?? ""),
+        password: String(form.get("password") ?? ""),
+      });
+      onLogin();
+    } catch (err) {
+      setError(err instanceof Error && !(err instanceof SyntaxError) ? err.message : "Could not log in. Please try again.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return <dialog className="login-dialog" ref={dialog} aria-labelledby="login-title" onCancel={(event) => {
+    event.preventDefault();
+    if (!pending) onClose();
+  }}>
+    <form onSubmit={(event) => void login(event)}>
+      <div className="dialog-header">
+        <h2 id="login-title">Log in to edit</h2>
+        <button type="button" className="icon-button dialog-close" aria-label="Close" disabled={pending} onClick={onClose}><X size={18} /></button>
+        <p>Enter the WARG editor credentials to make changes.</p>
+      </div>
+      <div className="dialog-fields">
+        <label className="field">Username<input name="username" autoComplete="username" autoFocus required maxLength={80} /></label>
+        <label className="field">Password<input type="password" name="password" autoComplete="current-password" required maxLength={256} /></label>
+        {error && <p className="form-error" role="alert">{error}</p>}
+      </div>
+      <div className="dialog-footer">
+        <button type="button" className="button secondary" disabled={pending} onClick={onClose}>Cancel</button>
+        <button className="button primary" type="submit" disabled={pending}>{pending ? "Logging in…" : "Log in"}</button>
       </div>
     </form>
   </dialog>;

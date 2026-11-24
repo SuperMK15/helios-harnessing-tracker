@@ -203,3 +203,14 @@ legend { padding: 0; margin-bottom: 6px; font-size: .875rem; font-weight: 650; }
   .toggle-grid { grid-template-columns: 1fr; }
   .dialog-header, .dialog-fields, .dialog-footer { padding-inline: 12px; }
 }
+
+.header-actions { display: flex; align-self: stretch; align-items: center; gap: 14px; }
+.editor-access { min-height: 34px; }
+.login-dialog { width: min(420px, calc(100% - 24px)); }
+
+@media (max-width: 520px) {
+  .topbar-inner { flex-wrap: wrap; gap: 0 8px; }
+  .header-actions { flex: 1 1 100%; justify-content: space-between; min-height: 45px; }
+  .brand { margin-top: 8px; }
+  .editor-access { font-size: .8125rem; padding-inline: 8px; }
+}
