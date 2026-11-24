@@ -35,10 +35,23 @@ diagramRoutes["PRP-03"] = "M690 88 H834 V545 H980";
   parallel(id("PRP",start+2),324,604,[[206,309,411,512][i]]);
   parallel(id("PRP",start+3),690,834,[[191,293,394,497][i]]);
 });
-[354,477,545,640,708,776,844].forEach((x,i) => {
-  const n = [1,2,4,6,9,12,15][i];
-  const y = [619,646,673,701,728,755,782][i];
-  diagramRoutes[id("SRV",n)] = [0,1,2].map(j => `M980 ${y+j*7} H${x+j*13.5} V${i?899:871}`).join(" ");
-  if(i) diagramRoutes[id("SRV",n+1)] = [0,1,2].map(j => `M${x+j*13.5} 900 V${i<3?959:1027}`).join(" ");
-  if(i>=3) diagramRoutes[id("SRV",n+2)] = [0,1,2].map(j => `M${x+j*13.5} 1028 V1129`).join(" ");
-});
+// Signal, power, and ground centerlines measured on the original schematic.
+const servoBundles = [
+  { firstRun: 1, xs: [354, 368, 381], ys: [619, 626, 633] },
+  { firstRun: 2, xs: [476, 490, 504], ys: [646, 653, 660] },
+  { firstRun: 4, xs: [544, 558, 572], ys: [673, 680, 687] },
+  { firstRun: 6, xs: [653, 667, 680], ys: [701, 708, 714] },
+  { firstRun: 9, xs: [721, 735, 748], ys: [728, 735, 741] },
+  { firstRun: 12, xs: [789, 803, 816], ys: [755, 762, 769] },
+  { firstRun: 15, xs: [857, 871, 884], ys: [782, 789, 796] },
+];
+
+for (const { firstRun, xs, ys } of servoBundles) {
+  diagramRoutes[id("SRV", firstRun)] = xs.map((x, i) => `M980 ${ys[i]} H${x} V871`).join(" ");
+  if (firstRun === 1) continue; // The wheel servo has no inline disconnect.
+  const reachesTail = firstRun >= 6;
+  diagramRoutes[id("SRV", firstRun + 1)] = xs.map(x => `M${x} 926 V${reachesTail ? 999 : 958}`).join(" ");
+  if (reachesTail) {
+    diagramRoutes[id("SRV", firstRun + 2)] = xs.map(x => `M${x} 1054 V1128`).join(" ");
+  }
+}

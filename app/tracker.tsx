@@ -407,7 +407,7 @@ function FunctionalDiagram({ wires, full, loadState, onReveal }: {
       window.removeEventListener("resize", dismiss);
     };
   }, []);
-  return <div className="diagram-scroll">
+  return <>
     <svg viewBox="0 0 1230 678" className={"wire-map functional-map" + (full ? " native" : "")}
       aria-label="Functional overview. Select a group to open its wires." onKeyDown={e => { if (e.key === "Escape") setTip(null); }}>
       <image href="/functional-diagram.png" width="1230" height="678" onPointerDown={() => setTip(null)} />
@@ -438,7 +438,7 @@ function FunctionalDiagram({ wires, full, loadState, onReveal }: {
         <span>{loadState === "loading" ? "Loading wire counts…" : "Wire counts unavailable"}</span>}
       {tip.touch && <small>Tap the group again to open</small>}
     </div>}
-  </div>;
+  </>;
 }
 
 function DetailedDiagram({ wires, full, onReveal }: { wires: Wire[]; full: boolean; onReveal: (wire: Wire) => void }) {
@@ -453,7 +453,7 @@ function DetailedDiagram({ wires, full, onReveal }: { wires: Wire[]; full: boole
       window.removeEventListener("resize", dismiss);
     };
   }, []);
-  return <div className="diagram-scroll">
+  return <>
     <svg className={full ? "wire-map native" : "wire-map"} viewBox="0 0 2048 1219" aria-label="Detailed harnessing. Select a wire to locate it in the register.">
       <image href="/harness-diagram.png" width="2048" height="1219" />
       {wires.map(wire => diagramRoutes[wire.id] && <path key={wire.id} d={diagramRoutes[wire.id]}
@@ -475,7 +475,7 @@ function DetailedDiagram({ wires, full, onReveal }: { wires: Wire[]; full: boole
       <strong>{selected.name}</strong>
       {stages.map(({ key, label }) => <div key={key}><span>{label}</span><b className={selected[key] ? "complete" : ""}>{selected[key] ? "✓ Complete" : "Pending"}</b></div>)}
     </div>}
-  </div>;
+  </>;
 }
 
 type WireListProps = { targetWire: string | null; rows: Wire[]; editable: boolean; onEdit: (wire: Wire) => void };

@@ -127,8 +127,6 @@ tbody tr:hover { background: #1d221f; }
 .empty .button { margin-inline-start: 8px; }
 
 .diagram-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 17px 0; }
-.diagram-panel { border: 1px solid var(--edge); border-radius: 7px; background: var(--surface); padding: 10px; }
-.diagram-panel img { display: block; width: 100%; height: auto; object-fit: contain; background: #101212; border-radius: 3px; }
 
 dialog { width: min(520px, calc(100% - 24px)); max-height: calc(100% - 24px); padding: 0; border: 1px solid #545a50; border-radius: 8px; color: var(--ink); background: var(--surface); box-shadow: 0 20px 60px #000a; }
 dialog::backdrop { background: #080a09c9; }
@@ -352,7 +350,6 @@ legend { padding: 0; margin-bottom: 6px; font-size: .875rem; font-weight: 650; }
   .filter-option span { min-height: 44px; }
 }
 
-.diagram-scroll { overflow: auto; max-height: 80vh; }
 .wire-map { display: block; width: 100%; height: auto; background: #111; }
 .wire-map.native { width: 2048px; max-width: none; }
 .wire-hit { fill: none; stroke: transparent; stroke-width: 9; pointer-events: stroke; cursor: pointer; }
