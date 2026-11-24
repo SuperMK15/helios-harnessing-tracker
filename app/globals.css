@@ -88,7 +88,7 @@ progress::-moz-progress-bar { background: var(--signal); }
 .search svg, .select svg { position: absolute; pointer-events: none; }
 .search svg { left: 11px; }
 .select svg { right: 10px; }
-input:not([type=checkbox]):not([type=radio]), select { width: 100%; min-height: 38px; background: #111413; color: var(--ink); border: 1px solid #434b44; border-radius: 5px; padding: 7px 10px; font-size: .875rem; }
+input:where(:not([type=checkbox], [type=radio])), select { width: 100%; min-height: 38px; background: #111413; color: var(--ink); border: 1px solid #434b44; border-radius: 5px; padding: 7px 10px; font-size: .875rem; }
 input::placeholder { color: #9ca69f; }
 .search input { padding-left: 35px; width: 190px; }
 .select select { appearance: none; width: 155px; padding-right: 28px; }
@@ -234,9 +234,9 @@ legend { padding: 0; margin-bottom: 6px; font-size: .875rem; font-weight: 650; }
   }
   .mobile-group.select select { width: 100%; }
   .mobile-group.select svg { bottom: 26px; right: 24px; }
-  .button, .nav-item, .icon-button, input:not([type=checkbox]):not([type=radio]), select, .toggle { min-height: 44px; }
+  .button, .nav-item, .icon-button, input:where(:not([type=checkbox], [type=radio])), select, .toggle { min-height: 44px; }
   .icon-button { min-width: 44px; }
-  input:not([type=checkbox]):not([type=radio]), select { font-size: 1rem; }
+  input:where(:not([type=checkbox], [type=radio])), select { font-size: 1rem; }
   .register-head { display: grid; gap: 10px; }
   .filters { display: grid; grid-template-columns: minmax(0, 1fr) auto; width: 100%; }
   .filters .primary { grid-column: 1 / -1; justify-self: start; }
