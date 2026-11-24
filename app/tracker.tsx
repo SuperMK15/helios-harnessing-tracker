@@ -152,7 +152,7 @@ export default function Tracker() {
       const checked = key === "inspection" ? Boolean(wire.inspectedBy) : wire[key];
       return status === "any" || checked === (status === "checked");
     })) &&
-    [wire.id, wireLabel(wire.id), wire.name, wire.endpoints, wire.connector, wire.solderedBy, wire.inspectedBy]
+    [wire.custom ? wire.id : "", wireLabel(wire.id), wire.name, wire.endpoints, wire.connector, wire.solderedBy, wire.inspectedBy]
       .some((value) => value.toLowerCase().includes(query)),
   );
   const sections = system ? [system] : systems.filter((name) => !removed && !query && filterCount === 0 ||

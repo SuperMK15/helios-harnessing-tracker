@@ -49,6 +49,20 @@ const lifts = [1, 2, 3, 4];
 const boomDisconnect = "Center wing boom disconnect";
 const tailServos = ["Left elevator", "Right elevator", "Left rudder", "Right rudder"];
 
+// Register order uses immutable storage IDs. Each lift lists power and signal
+// from source to ESC, followed by the motor phases and encoder.
+const propulsionOrder = [
+  1, 2, 3,                  // Pusher
+  20, 4, 21, 7, 5, 6,       // Lift 1
+  22, 8, 23, 11, 9, 10,     // Lift 2
+  24, 12, 25, 15, 13, 14,   // Lift 3
+  26, 16, 27, 19, 17, 18,   // Lift 4
+];
+const propulsionId = (n: number) => "PRP-" + String(n).padStart(2, "0");
+const propulsionLabels = new Map(propulsionOrder.map((storageNumber, index) =>
+  [propulsionId(storageNumber), propulsionId(index + 1)] as const
+));
+
 const originalHarnesses = [
   ...group("Power", "PWR", [
     ["Main battery feed", "12S3P battery → PM08-CAN BMS", "XT90"],
@@ -71,7 +85,7 @@ const originalHarnesses = [
       ["Lift " + n + " ESC power — PDB side", "Mateksys PDB → " + boomDisconnect, ""],
       ["Lift " + n + " ESC signal — Pixhawk side", "Pixhawk 6X → " + boomDisconnect, ""],
     ]),
-  ]),
+  ]).sort((a, b) => wireLabel(a.id).localeCompare(wireLabel(b.id))),
   ...group("RC + TELEM + VTX", "AVN", [
     ["DJI air unit power", "Mateksys PDB 12 V → DJI O4 Pro", "XT30 to shared 6-pin JST"],
     ["DJI air unit data", "Pixhawk 6X UART 2 → DJI O4 Pro", "6-pin JST · MSP DisplayPort"],
@@ -126,5 +140,5 @@ export type Wire = Harness & Tracking & {
 };
 
 export function wireLabel(id: string) {
-  return id.startsWith("wire-") ? "W-" + id.slice(5, 11).toUpperCase() : id;
+  return id.startsWith("wire-") ? "W-" + id.slice(5, 11).toUpperCase() : propulsionLabels.get(id) ?? id;
 }
