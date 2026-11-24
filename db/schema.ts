@@ -1,0 +1,12 @@
+import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+
+export const harnessTracking = sqliteTable("harness_tracking", {
+  id: text("id").primaryKey().notNull(),
+  length: real("length_mm"),
+  mechReady: integer("mech_ready", { mode: "boolean" }).notNull(),
+  soldered: integer("soldered", { mode: "boolean" }).notNull(),
+  installed: integer("installed", { mode: "boolean" }).notNull(),
+  solderedBy: text("soldered_by").notNull(),
+  inspectedBy: text("inspected_by").notNull(),
+  revision: integer("revision").notNull(),
+});
