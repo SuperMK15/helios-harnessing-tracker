@@ -181,7 +181,7 @@ export default function Tracker() {
         </section>
 
         <div className="workspace">
-          <aside className="sidebar" aria-label="Filter by functional group">
+          <aside className="sidebar desktop-only" aria-label="Filter by functional group">
             <h2>Functional groups</h2>
             <div className="group-nav">
               <button className={!removed && system === null ? "current" : ""} aria-pressed={!removed && system === null} onClick={() => { setSystem(null); setRemoved(false); }}>
@@ -198,6 +198,21 @@ export default function Tracker() {
               </button>
             </div>
           </aside>
+
+          <label className="mobile-group select">
+            <span>Functional group</span>
+            <select value={removed ? "removed" : system ?? "all"} onChange={(event) => {
+              const value = event.target.value;
+              setRemoved(value === "removed");
+              setSystem(systems.find((name) => name === value) ?? null);
+              if (value === "removed") setSearch("");
+            }}>
+              <option value="all">All groups</option>
+              {systems.map((name) => <option key={name}>{name}</option>)}
+              <option value="removed">Removed wires</option>
+            </select>
+            <ChevronDown size={16} />
+          </label>
 
           <section className="register" aria-labelledby="register-title">
             <div className="register-head">
@@ -228,7 +243,7 @@ export default function Tracker() {
                     <h3 style={{ color: groupColors[name] }}><span className="terminal" />{name}<small>{rows.length}</small></h3>
                     {editable && !removed && <button className="button section-add" aria-label={"Add wire to " + name} onClick={() => addWire(name)}><CirclePlus size={15} /> Add wire</button>}
                   </div>}
-                  {rows.length ? <WireTable rows={rows} editable={editable} onEdit={(wire) => { setNotice(""); setEditor({ wire }); }} /> :
+                  {rows.length ? <WireList rows={rows} editable={editable} onEdit={(wire) => { setNotice(""); setEditor({ wire }); }} /> :
                     <p className="empty">No wires {query || stage !== "all" ? "match these filters." : "in this group."}</p>}
                 </section>;
               })}
@@ -264,7 +279,42 @@ export default function Tracker() {
   </>;
 }
 
-function WireTable({ rows, editable, onEdit }: { rows: Wire[]; editable: boolean; onEdit: (wire: Wire) => void }) {
+type WireListProps = { rows: Wire[]; editable: boolean; onEdit: (wire: Wire) => void };
+
+function WireList(props: WireListProps) {
+  return <>
+    <WireTable {...props} />
+    <ul className="mobile-wires" role="list">
+      {props.rows.map((wire) => <li className="wire-card" key={wire.id}>
+        <div className="wire-card-header">
+          <div>
+            <span className="run-id">{wireLabel(wire.id)}</span>
+            <h4>{wire.name}</h4>
+            {wire.endpoints && <p className="run-route">{wire.endpoints}</p>}
+          </div>
+          {props.editable && <button className="icon-button" aria-label={(wire.archived ? "Review " : "Edit ") + wire.name} onClick={() => props.onEdit(wire)}>
+            {wire.archived ? <Archive size={17} /> : <Pencil size={17} />}
+          </button>}
+        </div>
+        <ul className="wire-card-stages" role="list">
+          {stages.map(({ key, label }) => <li key={key}>
+            <span className={wire[key] ? "stage-check done" : "stage-check"} aria-hidden="true">
+              {wire[key] ? <Check size={13} strokeWidth={2.3} /> : "·"}
+            </span>
+            {label}<span className="sr-only">{wire[key] ? " complete" : " pending"}</span>
+          </li>)}
+        </ul>
+        <dl className="wire-card-details">
+          <div><dt>Length</dt><dd className="length">{wire.length === null ? "—" : wire.length + " mm"}</dd></div>
+          <div><dt>Soldered by</dt><dd>{wire.solderedBy || "—"}</dd></div>
+          <div><dt>Inspected by</dt><dd>{wire.inspectedBy || "—"}</dd></div>
+        </dl>
+      </li>)}
+    </ul>
+  </>;
+}
+
+function WireTable({ rows, editable, onEdit }: WireListProps) {
   return <div className="table-scroll" tabIndex={0} role="region" aria-label="Wire rows">
     <table>
       <thead><tr>
