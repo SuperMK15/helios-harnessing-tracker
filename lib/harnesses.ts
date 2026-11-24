@@ -46,6 +46,7 @@ function group(system: System, prefix: string, runs: [string, string, string][])
 }
 
 const lifts = [1, 2, 3, 4];
+const boomDisconnect = "Center wing boom disconnect";
 const tailServos = ["Left elevator", "Right elevator", "Left rudder", "Right rudder"];
 
 const originalHarnesses = [
@@ -60,10 +61,15 @@ const originalHarnesses = [
     ["Pusher motor phases", "Pusher ESC → Pusher motor", "MT60 · 10 AWG"],
     ["Pusher ESC signal", "Pixhawk 6X → Pusher ESC", "DShot in functional diagram · CAN in detailed diagram"],
     ...lifts.flatMap((n): [string, string, string][] => [
-      ["Lift " + n + " ESC power", "Mateksys PDB → Lift " + n + " ESC", "XT60"],
+      ["Lift " + n + " ESC power — ESC side", boomDisconnect + " → Lift " + n + " ESC", "XT60"],
       ["Lift " + n + " motor phases", "Lift " + n + " ESC → Lift " + n + " motor", "MT60"],
       ["Lift " + n + " motor encoder signal", "Lift " + n + " motor ↔ Lift " + n + " ESC", n === 1 ? "MR / M6 · 5C 24 AWG as drawn" : "MR / M6 as drawn"],
-      ["Lift " + n + " ESC signal", "Pixhawk 6X → Lift " + n + " ESC", "DShot in functional diagram · CAN in detailed diagram"],
+      ["Lift " + n + " ESC signal — ESC side", boomDisconnect + " → Lift " + n + " ESC", "DShot in functional diagram · CAN in detailed diagram"],
+    ]),
+    // Append the new runs so the existing ESC-side records retain their IDs.
+    ...lifts.flatMap((n): [string, string, string][] => [
+      ["Lift " + n + " ESC power — PDB side", "Mateksys PDB → " + boomDisconnect, ""],
+      ["Lift " + n + " ESC signal — Pixhawk side", "Pixhawk 6X → " + boomDisconnect, ""],
     ]),
   ]),
   ...group("RC + TELEM + VTX", "AVN", [

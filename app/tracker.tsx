@@ -9,7 +9,7 @@ import {
   blankTracking, systems, wireLabel, type System, type Tracking, type Wire, type WireDetails,
 } from "../lib/harnesses";
 
-import { diagramRoutes } from "../lib/diagram-routes";
+import { diagramRoutes, liftSignalDisconnects } from "../lib/diagram-routes";
 
 const stages = [
   { key: "lengthFinal", label: "Length final" },
@@ -462,6 +462,8 @@ function DetailedDiagram({ wires, full, onReveal }: { wires: Wire[]; full: boole
   return <>
     <svg className={full ? "wire-map native" : "wire-map"} viewBox="0 0 2048 1219" aria-label="Detailed harnessing. Select a wire to locate it in the register.">
       <image href="/harness-diagram.png" width="2048" height="1219" />
+      {liftSignalDisconnects.map(({ x, y }) => <circle key={y} cx={x} cy={y} r={3}
+        fill="#121212" stroke="#95c995" pointerEvents="none" aria-hidden="true" />)}
       {wires.map(wire => diagramRoutes[wire.id] && <path key={wire.id} d={diagramRoutes[wire.id]}
         className="wire-hit" data-active={wire.id === selected?.id} role="link" tabIndex={0}
         aria-label={wireLabel(wire.id) + " " + wire.name} aria-describedby={wire.id === selected?.id ? "wire-tip" : undefined}

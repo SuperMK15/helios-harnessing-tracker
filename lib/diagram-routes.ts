@@ -27,13 +27,27 @@ parallel("SNS-08",1368,1448,[687,700,714,728]);
 function id(prefix: string, n: number) { return prefix + "-" + String(n).padStart(2,"0"); }
 parallel("PRP-02",324,604,[45,67,88]);
 diagramRoutes["PRP-03"] = "M690 88 H834 V545 H980";
-[ [138,152,816,830,103,126], [236,254,871,898,160,174], [339,356,952,981,212,219], [441,458,878,891,361,368] ].forEach(([a,b,x,u,y,v],i) => {
-  const start = 4+i*4;
-  diagramRoutes[id("PRP",start)] = `M690 ${a} H${x} V${y} H${i===3?1000:952}${i===3?" V219":""} M690 ${b} H${u} V${v} H${i===3?1028:i===2?981:952}${i===3?" V219":""}`;
-  const phase = [148,249,351,454][i];
-  parallel(id("PRP",start+1),324,604,[phase,phase+21,phase+43]);
-  parallel(id("PRP",start+2),324,604,[[206,309,411,512][i]]);
-  parallel(id("PRP",start+3),690,834,[[191,293,394,497][i]]);
+// Split the branches at the propulsion boundary (the center of the drawn XT60 pair).
+const boomX = 756;
+export const liftSignalDisconnects: { x: number; y: number }[] = [];
+[
+  { esc: [139,152], pdb: [135,152], turns: [816,103,952,830,126,952], phase: 148, encoder: 206, signal: 190 },
+  { esc: [237,250], pdb: [237,254], turns: [871,160,952,898,174,952], phase: 249, encoder: 309, signal: 292 },
+  { esc: [339,351], pdb: [339,356], turns: [952,219,952,981,219,981], phase: 351, encoder: 411, signal: 394 },
+  { esc: [441,454], pdb: [441,458], turns: [878,361,1000,891,368,1028], phase: 454, encoder: 512, signal: 497 },
+].forEach(({ esc, pdb, turns, phase, encoder, signal }, i) => {
+  const original = 4 + i * 4;
+  const upstream = 20 + i * 2;
+  parallel(id("PRP", original), 690, boomX, esc);
+  diagramRoutes[id("PRP", upstream)] = pdb.map((y, j) => {
+    const [bend, level, board] = turns.slice(j * 3, j * 3 + 3);
+    return `M${boomX} ${y} H${bend} V${level} H${board}` + (i === 3 ? " V219" : "");
+  }).join(" ");
+  parallel(id("PRP", original + 1), 324, 604, [phase, phase + 21, phase + 43]);
+  parallel(id("PRP", original + 2), 324, 604, [encoder]);
+  parallel(id("PRP", original + 3), 690, boomX, [signal]);
+  parallel(id("PRP", upstream + 1), boomX, 834, [signal]);
+  liftSignalDisconnects.push({ x: boomX, y: signal });
 });
 // Signal, power, and ground centerlines measured on the original schematic.
 const servoBundles = [
