@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   Archive, Cable, Check, ChevronDown, CirclePlus, CircuitBoard, FileImage,
-  LayoutList, LockKeyhole, LogOut, Pencil, RotateCcw, Search, X,
+  LayoutList, ListFilter, LockKeyhole, LogOut, Pencil, RotateCcw, Search, X,
 } from "lucide-react";
 import {
   blankTracking, systems, wireLabel, type System, type Tracking, type Wire, type WireDetails,
@@ -25,7 +25,14 @@ const groupColors: Record<System, string> = {
   "External Sensors": "#80c8a1",
 };
 
-type Stage = (typeof stages)[number]["key"];
+const filterFields = [...stages, { key: "inspection", label: "Inspection" }] as const;
+const filterOptions = [
+  { value: "any", stageLabel: "Any", inspectionLabel: "Any" },
+  { value: "checked", stageLabel: "Checked", inspectionLabel: "Recorded" },
+  { value: "unchecked", stageLabel: "Unchecked", inspectionLabel: "Missing" },
+] as const;
+type StatusFilters = Record<(typeof filterFields)[number]["key"], (typeof filterOptions)[number]["value"]>;
+const noStatusFilters: StatusFilters = { mechReady: "any", soldered: "any", installed: "any", inspection: "any" };
 type Editor = { wire: Wire } | { system: System; id: string };
 type Mutation =
   | { action: "create"; id: string; system: System; details: WireDetails; tracking: Tracking }
@@ -66,7 +73,8 @@ export default function Tracker() {
   const [system, setSystem] = useState<System | null>(null);
   const [removed, setRemoved] = useState(false);
   const [search, setSearch] = useState("");
-  const [stage, setStage] = useState<"all" | Stage | "uninspected">("all");
+  const [statusFilters, setStatusFilters] = useState(noStatusFilters);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [notice, setNotice] = useState("");
   const [editable, setEditable] = useState(false);
@@ -111,13 +119,18 @@ export default function Tracker() {
   const activeWires = wires.filter((wire) => !wire.archived);
   const listed = wires.filter((wire) => wire.archived === removed);
   const query = search.trim().toLowerCase();
+  const filterCount = Object.values(statusFilters).filter((value) => value !== "any").length;
   const matching = listed.filter((wire) =>
     (system === null || system === wire.system) &&
-    (removed || stage === "all" || (stage === "uninspected" ? !wire.inspectedBy : !wire[stage])) &&
+    (removed || filterFields.every(({ key }) => {
+      const status = statusFilters[key];
+      const checked = key === "inspection" ? Boolean(wire.inspectedBy) : wire[key];
+      return status === "any" || checked === (status === "checked");
+    })) &&
     [wire.id, wireLabel(wire.id), wire.name, wire.endpoints, wire.connector, wire.solderedBy, wire.inspectedBy]
       .some((value) => value.toLowerCase().includes(query)),
   );
-  const sections = system ? [system] : systems.filter((name) => !removed && !query && stage === "all" ||
+  const sections = system ? [system] : systems.filter((name) => !removed && !query && filterCount === 0 ||
     matching.some((wire) => wire.system === name));
 
   const diagramPath = diagram === "functional" ? "/functional-diagram.png" : "/harness-diagram.png";
@@ -134,7 +147,7 @@ export default function Tracker() {
     if (created) {
       setSystem(wire.system);
       setSearch("");
-      setStage("all");
+      setStatusFilters(noStatusFilters);
     }
     setEditor(null);
     setNotice(message);
@@ -221,15 +234,12 @@ export default function Tracker() {
               </div>
               <div className="filters">
                 <label className="search"><Search size={16} /><input aria-label="Search wires" placeholder="Search wires…" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
-                {!removed && <label className="select">
-                  <select aria-label="Filter by incomplete stage" value={stage} onChange={(event) => setStage(event.target.value as typeof stage)}>
-                    <option value="all">All statuses</option>
-                    <option value="mechReady">Mech pending</option>
-                    <option value="soldered">Soldering pending</option>
-                    <option value="installed">Installation pending</option>
-                    <option value="uninspected">Inspection pending</option>
-                  </select><ChevronDown size={14} />
-                </label>}
+                {!removed && <button className="button secondary" type="button" aria-haspopup="dialog"
+                  aria-label={filterCount ? `Filter (${filterCount} active)` : undefined}
+                  onClick={() => setFilterOpen(true)}>
+                  <ListFilter size={16} /> Filter
+                  {filterCount > 0 && <span className="filter-count" aria-hidden="true">{filterCount}</span>}
+                </button>}
                 {editable && system && !removed && <button className="button primary" disabled={loadState !== "ready"} onClick={() => addWire(system)}><CirclePlus size={16} /> Add wire</button>}
               </div>
             </div>
@@ -244,7 +254,7 @@ export default function Tracker() {
                     {editable && !removed && <button className="button section-add" aria-label={"Add wire to " + name} onClick={() => addWire(name)}><CirclePlus size={15} /> Add wire</button>}
                   </div>}
                   {rows.length ? <WireList rows={rows} editable={editable} onEdit={(wire) => { setNotice(""); setEditor({ wire }); }} /> :
-                    <p className="empty">No wires {query || stage !== "all" ? "match these filters." : "in this group."}</p>}
+                    <p className="empty">No wires {query || filterCount > 0 ? "match these filters." : "in this group."}</p>}
                 </section>;
               })}
               {!sections.length && <p className="empty">{removed && !query ? "No removed wires." : "No wires match these filters."}</p>}
@@ -267,6 +277,10 @@ export default function Tracker() {
     </main>
 
     <div className={notice ? "toast" : "sr-only"} role="status">{notice && <><Check size={17} />{notice}<button className="icon-button" aria-label="Dismiss status" onClick={() => setNotice("")}><X size={16} /></button></>}</div>
+    {filterOpen && <StatusFilterDialog initial={statusFilters} onClose={() => setFilterOpen(false)} onApply={(next) => {
+      setStatusFilters(next);
+      setFilterOpen(false);
+    }} />}
     {loginOpen && <EditorLogin onClose={() => setLoginOpen(false)} onLogin={() => {
       setLoginOpen(false);
       setEditable(true);
@@ -277,6 +291,52 @@ export default function Tracker() {
       onClose={() => setEditor(null)} onSaved={applySave} onConflict={() => { void refresh(); }}
       onExpired={() => { setEditor(null); setEditable(false); setLoginOpen(true); setNotice("Your editor session expired."); }} />}
   </>;
+}
+
+function StatusFilterDialog({ initial, onClose, onApply }: {
+  initial: StatusFilters; onClose: () => void; onApply: (next: StatusFilters) => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [draft, setDraft] = useState(initial);
+
+  useEffect(() => {
+    const element = dialog.current;
+    element?.showModal();
+    return () => { element?.close(); };
+  }, []);
+
+  return <dialog className="status-filter-dialog" ref={dialog} aria-labelledby="status-filter-title" onCancel={(event) => {
+    event.preventDefault();
+    onClose();
+  }}>
+    <form onSubmit={(event) => {
+      event.preventDefault();
+      onApply(draft);
+    }}>
+      <div className="dialog-header">
+        <h2 id="status-filter-title">Filter wire statuses</h2>
+        <button type="button" className="icon-button dialog-close" aria-label="Close" onClick={onClose}><X size={18} /></button>
+        <p>Show wires that match every selected status.</p>
+      </div>
+      <div className="dialog-fields">
+        {filterFields.map(({ key, label }) => <fieldset key={key}>
+          <legend>{label}</legend>
+          <div className="filter-options">
+            {filterOptions.map(({ value, stageLabel, inspectionLabel }) => <label className="filter-option" key={value}>
+              <input type="radio" name={key} value={value} checked={draft[key] === value}
+                onChange={() => setDraft({ ...draft, [key]: value })} />
+              {key === "inspection" ? inspectionLabel : stageLabel}
+            </label>)}
+          </div>
+        </fieldset>)}
+      </div>
+      <div className="dialog-footer">
+        <button type="button" className="button secondary filter-reset" onClick={() => setDraft(noStatusFilters)}>Reset</button>
+        <button type="button" className="button secondary" onClick={onClose}>Cancel</button>
+        <button type="submit" className="button primary">Apply filters</button>
+      </div>
+    </form>
+  </dialog>;
 }
 
 type WireListProps = { rows: Wire[]; editable: boolean; onEdit: (wire: Wire) => void };
