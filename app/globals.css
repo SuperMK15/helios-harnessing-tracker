@@ -361,7 +361,6 @@ legend { padding: 0; margin-bottom: 6px; font-size: .875rem; font-weight: 650; }
 .wire-tip b { font-weight: 500; color: var(--muted); }
 .wire-tip .complete { color: var(--signal); }
 [data-located=true] { outline: 2px solid var(--accent); outline-offset: -2px; background: #302a20; }
-.functional-map.native { width: 1230px; }
 .group-hit { cursor: pointer; fill: transparent; outline: none; }
 .group-hit[data-active=true] rect, .group-hit:focus-visible rect { fill: #edc68218; stroke: var(--accent); stroke-width: 2; }
 #function-tip b { color: var(--ink); font-family: var(--mono); font-variant-numeric: tabular-nums; }

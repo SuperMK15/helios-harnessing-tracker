@@ -381,15 +381,21 @@ function StatusFilterDialog({ initial, onClose, onApply }: {
   </dialog>;
 }
 
-// Rounded regions follow the group outlines in the original 1230 × 678 drawing.
+// Bounds are in the functional diagram's native 2048 × 1204 coordinate system.
 const functionalRegions: Record<System, [number, number, number, number, number][]> = {
-  Propulsion: [[142, 39, 335, 360, 50]],
-  Power: [[831, 97, 327, 109, 16]],
-  "Power Distribution": [[568, 20, 213, 143, 21], [546, 189, 110, 29, 0]],
-  "Flight Controller": [[568, 244, 146, 237, 18], [526, 273, 42, 194, 0], [703, 273, 43, 178, 0], [575, 467, 121, 41, 0]],
-  Servos: [[69, 470, 453, 93, 13]],
-  "RC + TELEM + VTX": [[537, 529, 252, 117, 20]],
-  "External Sensors": [[940, 257, 193, 377, 28]],
+  Propulsion: [[163, 65, 611, 656, 92]],
+  Power: [[1420, 172, 595, 198, 30]],
+  "Power Distribution": [[940, 31, 389, 260, 39], [901, 339, 199, 53, 0]],
+  "Flight Controller": [
+    [932, 477, 274, 397, 41], // Pixhawk body
+    [956, 435, 112, 92, 0], [1082, 435, 92, 61, 0], // Servo rail and power
+    [863, 492, 77, 168, 0], [863, 675, 77, 168, 0], // Left CAN and PWM
+    [1188, 492, 76, 99, 0], [1188, 599, 76, 99, 0], [1188, 736, 76, 77, 0],
+    [953, 843, 107, 77, 0], [1075, 843, 107, 77, 0], // UART ports
+  ],
+  Servos: [[31, 851, 825, 168, 25]],
+  "RC + TELEM + VTX": [[884, 958, 460, 213, 32]],
+  "External Sensors": [[1618, 462, 351, 688, 53]],
 };
 
 function FunctionalDiagram({ wires, full, loadState, onReveal }: {
@@ -408,9 +414,9 @@ function FunctionalDiagram({ wires, full, loadState, onReveal }: {
     };
   }, []);
   return <>
-    <svg viewBox="0 0 1230 678" className={"wire-map functional-map" + (full ? " native" : "")}
+    <svg viewBox="0 0 2048 1204" className={"wire-map functional-map" + (full ? " native" : "")}
       aria-label="Functional overview. Select a group to open its wires." onKeyDown={e => { if (e.key === "Escape") setTip(null); }}>
-      <image href="/functional-diagram.png" width="1230" height="678" onPointerDown={() => setTip(null)} />
+      <image href="/functional-diagram.png" width="2048" height="1204" onPointerDown={() => setTip(null)} />
       {systems.map(name => <g key={name} className="group-hit" role="link" tabIndex={0} aria-label={name}
         aria-describedby={tip?.name === name ? "function-tip" : undefined} data-active={tip?.name === name}
         onPointerMove={e => { if (e.pointerType !== "touch") setTip({ name, x: e.clientX, y: e.clientY }); }}
@@ -425,7 +431,7 @@ function FunctionalDiagram({ wires, full, loadState, onReveal }: {
           else onReveal(name);
         }}
         onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onReveal(name); } }}>
-        {functionalRegions[name].map(([x,y,width,height,r]) => <rect key={x} x={x} y={y} width={width} height={height} rx={r} />)}
+        {functionalRegions[name].map(([x,y,width,height,r]) => <rect key={`${x}-${y}`} x={x} y={y} width={width} height={height} rx={r} />)}
       </g>)}
     </svg>
     {tip && <div role="tooltip" id="function-tip" className="wire-tip" style={{
