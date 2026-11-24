@@ -302,6 +302,7 @@ function StatusFilterDialog({ initial, onClose, onApply }: {
   useEffect(() => {
     const element = dialog.current;
     element?.showModal();
+    element?.querySelector("h2")?.focus();
     return () => { element?.close(); };
   }, []);
 
@@ -314,7 +315,7 @@ function StatusFilterDialog({ initial, onClose, onApply }: {
       onApply(draft);
     }}>
       <div className="dialog-header">
-        <h2 id="status-filter-title">Filter wire statuses</h2>
+        <h2 id="status-filter-title" tabIndex={-1}>Filter wire statuses</h2>
         <button type="button" className="icon-button dialog-close" aria-label="Close" onClick={onClose}><X size={18} /></button>
         <p>Show wires that match every selected status.</p>
       </div>
@@ -323,9 +324,9 @@ function StatusFilterDialog({ initial, onClose, onApply }: {
           <legend>{label}</legend>
           <div className="filter-options">
             {filterOptions.map(({ value, stageLabel, inspectionLabel }) => <label className="filter-option" key={value}>
-              <input type="radio" name={key} value={value} checked={draft[key] === value}
+              <input className="sr-only" type="radio" name={key} value={value} checked={draft[key] === value}
                 onChange={() => setDraft({ ...draft, [key]: value })} />
-              {key === "inspection" ? inspectionLabel : stageLabel}
+              <span>{key === "inspection" ? inspectionLabel : stageLabel}</span>
             </label>)}
           </div>
         </fieldset>)}
