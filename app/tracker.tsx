@@ -9,6 +9,8 @@ import {
   blankTracking, systems, wireLabel, type System, type Tracking, type Wire, type WireDetails,
 } from "../lib/harnesses";
 
+import { diagramRoutes } from "../lib/diagram-routes";
+
 const stages = [
   { key: "lengthFinal", label: "Length final" },
   { key: "soldered", label: "Soldered" },
@@ -81,6 +83,28 @@ export default function Tracker() {
   const [editable, setEditable] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+
+  const [fullDiagram, setFullDiagram] = useState(false);
+  const [targetWire, setTargetWire] = useState<string | null>(null);
+  function revealWire(wire: Wire) {
+    setSystem(wire.system);
+    setRemoved(wire.archived);
+    setSearch("");
+    setStatusFilters(noStatusFilters);
+    setTargetWire(wire.id);
+    setView("register");
+    setFullDiagram(false);
+  }
+  useEffect(() => {
+    if (!targetWire || view !== "register") return;
+    const row = Array.from(document.querySelectorAll<HTMLElement>("[data-wire]")).find(
+      el => el.dataset.wire === targetWire && el.getClientRects().length > 0
+    );
+    row?.focus({ preventScroll: true });
+    row?.scrollIntoView({ block: "center" });
+    const timer = window.setTimeout(() => setTargetWire(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [targetWire, view]);
 
   async function refresh() {
     try {
@@ -254,7 +278,7 @@ export default function Tracker() {
                     <h3 style={{ color: groupColors[name] }}><span className="terminal" />{name}<small>{rows.length}</small></h3>
                     {editable && !removed && <button className="button section-add" aria-label={"Add wire to " + name} onClick={() => addWire(name)}><CirclePlus size={15} /> Add wire</button>}
                   </div>}
-                  {rows.length ? <WireList rows={rows} editable={editable} onEdit={(wire) => { setNotice(""); setEditor({ wire }); }} /> :
+                  {rows.length ? <WireList targetWire={targetWire} rows={rows} editable={editable} onEdit={(wire) => { setNotice(""); setEditor({ wire }); }} /> :
                     <p className="empty">No wires {query || filterCount > 0 ? "match these filters." : "in this group."}</p>}
                 </section>;
               })}
@@ -265,14 +289,16 @@ export default function Tracker() {
       </> : <>
         <div className="headline">
           <div><h1>Wiring diagrams<span>.</span></h1><p>Helios Mark 2 electrical architecture</p></div>
-          <a className="button secondary" href={diagramPath} target="_blank" rel="noreferrer"><FileImage size={16} /> Open full size</a>
+          {diagram === "detailed" ? <button className="button secondary" aria-pressed={fullDiagram} onClick={() => setFullDiagram(!fullDiagram)}><FileImage size={16} />{fullDiagram ? "Fit to view" : "Open full size"}</button> : <a className="button secondary" href={diagramPath} target="_blank" rel="noreferrer"><FileImage size={16} /> Open full size</a>}
         </div>
         <div className="diagram-tabs" aria-label="Select diagram">
           <button className="button secondary" aria-pressed={diagram === "functional"} onClick={() => setDiagram("functional")}>Functional overview</button>
           <button className="button secondary" aria-pressed={diagram === "detailed"} onClick={() => setDiagram("detailed")}>Detailed harnessing</button>
         </div>
         <div className="diagram-panel">
-          <img src={diagramPath} alt={diagram === "functional" ? "Helios Mark 2 functional wiring groups centered around the Pixhawk 6X." : "Detailed Helios Mark 2 harnessing schematic."} />
+          {diagram === "detailed" ? <DetailedDiagram wires={wires} full={fullDiagram} onReveal={revealWire} /> :
+            <img src={diagramPath} alt="Helios Mark 2 functional wiring groups centered around the Pixhawk 6X." />}
+
         </div>
       </>}
     </main>
@@ -341,13 +367,50 @@ function StatusFilterDialog({ initial, onClose, onApply }: {
   </dialog>;
 }
 
-type WireListProps = { rows: Wire[]; editable: boolean; onEdit: (wire: Wire) => void };
+function DetailedDiagram({ wires, full, onReveal }: { wires: Wire[]; full: boolean; onReveal: (wire: Wire) => void }) {
+  const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null);
+  const selected = wires.find(w => w.id === hover?.id);
+  useEffect(() => {
+    const dismiss = () => setHover(null);
+    window.addEventListener("scroll", dismiss, true);
+    window.addEventListener("resize", dismiss);
+    return () => {
+      window.removeEventListener("scroll", dismiss, true);
+      window.removeEventListener("resize", dismiss);
+    };
+  }, []);
+  return <div className="diagram-scroll">
+    <svg className={full ? "wire-map native" : "wire-map"} viewBox="0 0 2048 1219" aria-label="Detailed harnessing. Select a wire to locate it in the register.">
+      <image href="/harness-diagram.png" width="2048" height="1219" />
+      {wires.map(wire => diagramRoutes[wire.id] && <path key={wire.id} d={diagramRoutes[wire.id]}
+        className="wire-hit" data-active={wire.id === selected?.id} role="link" tabIndex={0}
+        aria-label={wireLabel(wire.id) + " " + wire.name} aria-describedby={wire.id === selected?.id ? "wire-tip" : undefined}
+        onPointerMove={e => { if (e.pointerType !== "touch") setHover({ id: wire.id, x: e.clientX, y: e.clientY }); }}
+        onPointerLeave={() => setHover(null)} onBlur={() => setHover(null)}
+        onFocus={e => { const r = e.currentTarget.getBoundingClientRect(); setHover({ id: wire.id, x: (r.left+r.right)/2, y: (r.top+r.bottom)/2 }); }}
+        onClick={() => onReveal(wire)} onKeyDown={e => {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onReveal(wire); }
+          if (e.key === "Escape") setHover(null);
+        }} />)}
+    </svg>
+    {selected && hover && <div id="wire-tip" role="tooltip" className="wire-tip" style={{
+      left: Math.max(6, Math.min(window.innerWidth - 238, hover.x + 14)),
+      top: hover.y > window.innerHeight - 220 ? Math.max(6, hover.y - 200) : hover.y + 14
+    }}>
+      <small>{wireLabel(selected.id)}{selected.archived && " · Removed"}</small>
+      <strong>{selected.name}</strong>
+      {stages.map(({ key, label }) => <div key={key}><span>{label}</span><b className={selected[key] ? "complete" : ""}>{selected[key] ? "✓ Complete" : "Pending"}</b></div>)}
+    </div>}
+  </div>;
+}
+
+type WireListProps = { targetWire: string | null; rows: Wire[]; editable: boolean; onEdit: (wire: Wire) => void };
 
 function WireList(props: WireListProps) {
   return <>
     <WireTable {...props} />
     <ul className="mobile-wires" role="list">
-      {props.rows.map((wire) => <li className="wire-card" key={wire.id}>
+      {props.rows.map((wire) => <li className="wire-card" key={wire.id} tabIndex={-1} data-wire={wire.id} data-located={props.targetWire === wire.id}>
         <div className="wire-card-header">
           <div>
             <span className="run-id">{wireLabel(wire.id)}</span>
@@ -376,7 +439,7 @@ function WireList(props: WireListProps) {
   </>;
 }
 
-function WireTable({ rows, editable, onEdit }: WireListProps) {
+function WireTable({ rows, editable, onEdit, targetWire }: WireListProps) {
   return <div className="table-scroll" tabIndex={0} role="region" aria-label="Wire rows">
     <table>
       <thead><tr>
@@ -384,7 +447,7 @@ function WireTable({ rows, editable, onEdit }: WireListProps) {
         {stages.map(({ key, label }) => <th className="stage-cell" key={key} scope="col">{label}</th>)}
         <th scope="col">Soldered by</th><th scope="col">Inspected by</th>{editable && <th scope="col" className="edit-head"><span className="sr-only">Open wire</span></th>}
       </tr></thead>
-      <tbody>{rows.map((wire) => <tr key={wire.id}>
+      <tbody>{rows.map((wire) => <tr key={wire.id} tabIndex={-1} data-wire={wire.id} data-located={targetWire === wire.id}>
         <th scope="row" className="run">
           <div className="run-name"><span className="run-id">{wireLabel(wire.id)}</span><span>{wire.name}</span></div>
           {wire.endpoints && <div className="run-route">{wire.endpoints}</div>}
