@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
-  Archive, Cable, Check, ChevronDown, CirclePlus, CircuitBoard, FileImage,
+  Archive, ChartNoAxesColumnIncreasing, Cable, Check, ChevronDown, CirclePlus, CircuitBoard, FileImage,
   LayoutList, ListFilter, LockKeyhole, LogOut, Pencil, RotateCcw, Search, X,
 } from "lucide-react";
 import {
   blankTracking, systems, wireLabel, type System, type Tracking, type Wire, type WireDetails,
 } from "../lib/harnesses";
 
+import { BuildStats } from "./build-stats";
 import { diagramRoutes, liftSignalDisconnects } from "../lib/diagram-routes";
 
 const stages = [
@@ -71,7 +72,7 @@ async function updateSession(method: "POST" | "DELETE", credentials?: { username
 export default function Tracker() {
   const [wires, setWires] = useState<Wire[]>([]);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
-  const [view, setView] = useState<"register" | "diagram">("register");
+  const [view, setView] = useState<"register" | "diagram" | "stats">("register");
   const [diagram, setDiagram] = useState<"functional" | "detailed">("functional");
   const [system, setSystem] = useState<System | null>(null);
   const [removed, setRemoved] = useState(false);
@@ -203,6 +204,7 @@ export default function Tracker() {
           <nav aria-label="Views">
             <button className={view === "register" ? "nav-item selected" : "nav-item"} aria-current={view === "register" ? "page" : undefined} onClick={() => setView("register")}><LayoutList size={16} /> Tracker</button>
             <button className={view === "diagram" ? "nav-item selected" : "nav-item"} aria-current={view === "diagram" ? "page" : undefined} onClick={() => setView("diagram")}><FileImage size={16} /> Diagrams</button>
+            <button className={view === "stats" ? "nav-item selected" : "nav-item"} aria-current={view === "stats" ? "page" : undefined} onClick={() => setView("stats")}><ChartNoAxesColumnIncreasing size={16} /> Stats</button>
           </nav>
           {editable
             ? <button className="button secondary editor-access" disabled={loggingOut} onClick={() => void logOut()}><LogOut size={15} /> Log out</button>
@@ -300,6 +302,11 @@ export default function Tracker() {
             </div>}
           </section>
         </div>
+      </> : view === "stats" ? <>
+        <div className="headline"><div><h1>Build stats<span>.</span></h1><p>Helios Mark 2 · Active harness runs</p></div></div>
+        {loadState === "ready" ? <BuildStats wires={activeWires} stages={stages} colors={groupColors} onGroup={revealSection} /> :
+          loadState === "loading" ? <p className="empty" role="status">Loading build stats…</p> :
+          <div className="empty" role="alert">Could not load build stats. <button className="button secondary" onClick={() => { setLoadState("loading"); void refresh(); }}>Retry</button></div>}
       </> : <>
         <div className="headline">
           <div><h1>Wiring diagrams<span>.</span></h1><p>Helios Mark 2 electrical architecture</p></div>
